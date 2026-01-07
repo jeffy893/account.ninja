@@ -432,7 +432,7 @@ class AccountNinja {
             return;
         }
         if (goalAmount <= 0 || zenWeight < 1 || zenWeight > 3 || daysRemaining < 0) {
-            this.showMessage('Please enter valid values (Goal > 0, Zen 1-3, Days >= 0).', 'error');
+            this.showMessage('Please enter valid values (Goal > 0, 3Zen 1-3, Days >= 0).', 'error');
             return;
         }
 
@@ -791,7 +791,7 @@ class AccountNinja {
             return;
         }
 
-        const headers = ['Account Name', 'Goal Amount ($)', 'Current Amount ($)', 'Remaining ($)', 'Priority', 'Zen Weight', 'Days Remaining'];
+        const headers = ['Account Name', 'Goal Amount ($)', 'Current Amount ($)', 'Remaining ($)', 'Priority', '3Zen Weight', 'Days Remaining'];
         const csvContent = [
             headers,
             ...this.accounts.map(account => [
@@ -820,7 +820,7 @@ class AccountNinja {
         }
 
         const simAccounts = JSON.parse(JSON.stringify(this.accounts));
-        const headers = ['Cycle', 'Account Name', 'Goal Amount ($)', 'Current Amount ($)', 'Remaining ($)', 'Priority', 'Zen Weight', 'Days Remaining'];
+        const headers = ['Cycle', 'Account Name', 'Goal Amount ($)', 'Current Amount ($)', 'Remaining ($)', 'Priority', '3Zen Weight', 'Days Remaining'];
         const csvRows = [headers];
 
         // Add initial state (Cycle 0)

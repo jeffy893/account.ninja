@@ -23,7 +23,7 @@ Account Ninja is a sophisticated client-side web application that helps you simu
 - Drag-and-drop reordering to adjust account priorities
 - Real-time editing of account parameters
 - Progress bars showing completion status
-- Zen weighting system for balanced allocation strategies
+- 3Zen weighting system for balanced allocation strategies
 
 ### 🚀 Simulation Engine
 - Multi-cycle distribution simulation with intelligent fund allocation
@@ -60,16 +60,16 @@ No installation, build process, or server setup required!
 - **Goal Amount**: Target amount for the account
 - **Current Amount**: Present balance (editable)
 - **Priority**: Order-based priority (1 = highest priority)
-- **Zen Weight**: Allocation multiplier (1.0-3.0) - A qualitative measure where you ask yourself: "Does this account allocation make sense, cents, and scents?" (logical sense, financial sense, intuitive feel)
+- **3Zen Weight**: Allocation multiplier (1.0-3.0) - A qualitative measure where you ask yourself: "Does this account allocation make sense, cents, and scents?" (logical sense, financial sense, intuitive feel)
 - **Days Remaining**: Time constraint for reaching the goal
 
 ### Allocation Algorithm
 The simulation uses a sophisticated weighted allocation algorithm:
 ```
-Calculated Weight = (Zen Weight × (1 / Days Remaining)) / Priority
+Calculated Weight = (3Zen Weight × (1 / Days Remaining)) / Priority
 ```
 
-Funds are distributed proportionally based on calculated weights, ensuring accounts with higher priority, more zen weight, and less time remaining get prioritized appropriately.
+Funds are distributed proportionally based on calculated weights, ensuring accounts with higher priority, more 3zen weight, and less time remaining get prioritized appropriately.
 
 ## 📊 Dashboard Components
 
