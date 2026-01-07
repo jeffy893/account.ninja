@@ -1,6 +1,6 @@
 # Account Ninja 🥷
 
-**Professional Financial Account Growth Simulator with Real-time Dashboard**
+**Amateur Financial Account Growth Simulator with Real-time Dashboard**
 
 Account Ninja is a sophisticated client-side web application that helps you simulate and visualize financial account growth and contribution strategies. Instead of manually exporting data to external tools like Tableau, Account Ninja provides real-time, interactive charts and professional dashboard visualization directly in your browser.
 
