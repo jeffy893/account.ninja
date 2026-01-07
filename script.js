@@ -19,7 +19,27 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 class AccountNinja {
     constructor() {
         this.accounts = JSON.parse(localStorage.getItem('accountsNinjaDB')) || [];
+        
+        // Migration: Add originalDaysRemaining for existing accounts
+        this.accounts.forEach(account => {
+            if (account.originalDaysRemaining === undefined) {
+                account.originalDaysRemaining = account.daysRemaining;
+            }
+        });
+        
         this.simulationHistory = [];
+        
+        // Migration: Convert old simulation history format to new format
+        const oldHistory = JSON.parse(localStorage.getItem('accountsNinjaSimulationHistory') || '[]');
+        if (oldHistory.length > 0 && !oldHistory[0].accounts) {
+            // Old format detected, convert to new format
+            this.simulationHistory = oldHistory.map((accounts, index) => ({
+                accounts: accounts,
+                daysPerCycle: 30, // Default for old simulations
+                cumulativeDays: index * 30
+            }));
+        }
+        
         this.charts = {};
         this.draggedItem = null;
         this.draggedItemAccountId = null;
@@ -57,6 +77,7 @@ class AccountNinja {
         // Simulation elements
         this.amountToDistributeInput = document.getElementById('amountToDistribute');
         this.distributionCyclesInput = document.getElementById('distributionCyclesInput');
+        this.daysPerCycleInput = document.getElementById('daysPerCycle');
         this.distributeBtn = document.getElementById('distributeBtn');
         this.resetBtn = document.getElementById('resetBtn');
         this.distributionMessage = document.getElementById('distributionMessage');
@@ -141,6 +162,10 @@ class AccountNinja {
                     },
                     x: {
                         stacked: true,
+                        title: {
+                            display: true,
+                            text: 'Days Elapsed'
+                        },
                         grid: {
                             color: 'rgba(0, 0, 0, 0.1)'
                         }
@@ -296,7 +321,7 @@ class AccountNinja {
     updateCumulativeChart() {
         if (this.simulationHistory.length === 0) {
             // Show current state only
-            this.charts.cumulative.data.labels = ['Current State'];
+            this.charts.cumulative.data.labels = ['Day 0'];
             this.charts.cumulative.data.datasets = this.accounts.map((account, index) => ({
                 label: account.name,
                 data: [account.currentAmount],
@@ -312,15 +337,15 @@ class AccountNinja {
                 pointHoverRadius: 6
             }));
         } else {
-            // Show progression through all cycles with stacked areas
-            this.charts.cumulative.data.labels = this.simulationHistory.map((_, index) => 
-                index === 0 ? 'Initial' : `Cycle ${index}`
+            // Show progression through all cycles with cumulative days
+            this.charts.cumulative.data.labels = this.simulationHistory.map((entry, index) => 
+                `Day ${entry.cumulativeDays}`
             );
             
             this.charts.cumulative.data.datasets = this.accounts.map((account, index) => ({
                 label: account.name,
-                data: this.simulationHistory.map(cycle => {
-                    const accountInCycle = cycle.find(acc => acc.id === account.id);
+                data: this.simulationHistory.map(entry => {
+                    const accountInCycle = entry.accounts.find(acc => acc.id === account.id);
                     return accountInCycle ? accountInCycle.currentAmount : 0;
                 }),
                 borderColor: this.getAccountColor(account.id),
@@ -418,7 +443,8 @@ class AccountNinja {
             currentAmount: 0,
             priority: 0,
             zenWeight,
-            daysRemaining
+            daysRemaining,
+            originalDaysRemaining: daysRemaining  // Store original value for reset
         });
 
         this.updatePriorities();
@@ -521,6 +547,7 @@ class AccountNinja {
                 const newValue = parseInt(daysInput.value);
                 if (!isNaN(newValue) && newValue >= 0) {
                     account.daysRemaining = newValue;
+                    account.originalDaysRemaining = newValue;  // Update original when manually changed
                     this.saveAndRender();
                 } else {
                     daysInput.value = account.daysRemaining;
@@ -679,15 +706,20 @@ class AccountNinja {
     distributeFunds() {
         const amountPerCycle = parseFloat(this.amountToDistributeInput.value);
         const numCyclesRequested = parseInt(this.distributionCyclesInput.value) || 1;
+        const daysPerCycle = parseInt(this.daysPerCycleInput.value) || 30;
         
-        if (isNaN(amountPerCycle) || amountPerCycle <= 0 || numCyclesRequested < 1) {
-            this.showMessage('Please enter valid Amount per Cycle and Cycles values.', 'error');
+        if (isNaN(amountPerCycle) || amountPerCycle <= 0 || numCyclesRequested < 1 || daysPerCycle < 1) {
+            this.showMessage('Please enter valid Amount per Cycle, Cycles, and Days per Cycle values.', 'error');
             return;
         }
 
         // Store initial state if this is the first simulation
         if (this.simulationHistory.length === 0) {
-            this.simulationHistory.push(JSON.parse(JSON.stringify(this.accounts)));
+            this.simulationHistory.push({
+                accounts: JSON.parse(JSON.stringify(this.accounts)),
+                daysPerCycle: 0,
+                cumulativeDays: 0
+            });
         }
 
         let grandTotalDistributed = 0;
@@ -699,16 +731,26 @@ class AccountNinja {
             const moneyGivenInThisCycle = this.runSingleDistributionCycle(this.accounts, amountPerCycle, false);
             grandTotalDistributed += moneyGivenInThisCycle;
             
-            // Store this cycle's state
-            this.simulationHistory.push(JSON.parse(JSON.stringify(this.accounts)));
+            // Reduce days remaining for all accounts after each cycle
+            this.accounts.forEach(account => {
+                account.daysRemaining = Math.max(0, account.daysRemaining - daysPerCycle);
+            });
             
-            let cycleMessage = `Cycle ${cycle}: Distributed $${moneyGivenInThisCycle.toFixed(2)}`;
+            // Store this cycle's state with cumulative days (after days reduction)
+            const previousEntry = this.simulationHistory[this.simulationHistory.length - 1];
+            const cumulativeDays = previousEntry.cumulativeDays + daysPerCycle;
+            this.simulationHistory.push({
+                accounts: JSON.parse(JSON.stringify(this.accounts)),
+                daysPerCycle: daysPerCycle,
+                cumulativeDays: cumulativeDays
+            });
+            
+            let cycleMessage = `Cycle ${cycle}: Distributed $${moneyGivenInThisCycle.toFixed(2)} (${daysPerCycle} days elapsed)`;
             cycleReport.push(cycleMessage);
-
             if (moneyGivenInThisCycle < amountPerCycle) {
-                const anyAccountNeedsFunding = this.accounts.some(acc => acc.currentAmount < acc.goalAmount);
+                const anyAccountNeedsFunding = this.accounts.some(acc => acc.currentAmount < acc.goalAmount && acc.daysRemaining > 0);
                 if (!anyAccountNeedsFunding) {
-                    cycleReport.push('All accounts are fully funded. Stopping simulation.');
+                    cycleReport.push('All accounts are fully funded or out of time. Stopping simulation.');
                     break;
                 } else if (moneyGivenInThisCycle < 0.01) {
                     cycleReport.push('Very little distributed this cycle. Stopping simulation.');
@@ -721,7 +763,7 @@ class AccountNinja {
         const theoreticalTotal = amountPerCycle * actualCyclesProcessed;
 
         this.showMessage(
-            `Simulation Complete: Distributed $${grandTotalDistributed.toFixed(2)} over ${actualCyclesProcessed} cycle(s). Total portfolio value: $${totalValue.toLocaleString()}`,
+            `Simulation Complete: Distributed $${grandTotalDistributed.toFixed(2)} over ${actualCyclesProcessed} cycle(s) (${actualCyclesProcessed * daysPerCycle} total days). Total portfolio value: $${totalValue.toLocaleString()}`,
             'success'
         );
         
@@ -729,8 +771,14 @@ class AccountNinja {
     }
 
     resetSimulation() {
-        if (confirm('Are you sure you want to reset all account balances to zero?')) {
-            this.accounts.forEach(account => account.currentAmount = 0);
+        if (confirm('Are you sure you want to reset all account balances and days remaining?')) {
+            this.accounts.forEach(account => {
+                account.currentAmount = 0;
+                // Reset days remaining to original value if available, otherwise keep current
+                if (account.originalDaysRemaining !== undefined) {
+                    account.daysRemaining = account.originalDaysRemaining;
+                }
+            });
             this.simulationHistory = []; // Clear simulation history
             this.saveAndRender();
             this.showMessage('Simulation reset successfully!', 'success');
@@ -764,8 +812,9 @@ class AccountNinja {
     generateTimelineCSV() {
         const amountPerCycle = parseFloat(this.amountToDistributeInput.value);
         const numCyclesToSimulate = parseInt(this.distributionCyclesInput.value) || 1;
+        const daysPerCycle = parseInt(this.daysPerCycleInput.value) || 30;
         
-        if (isNaN(amountPerCycle) || amountPerCycle <= 0 || numCyclesToSimulate < 1) {
+        if (isNaN(amountPerCycle) || amountPerCycle <= 0 || numCyclesToSimulate < 1 || daysPerCycle < 1) {
             this.showMessage('Please enter valid simulation parameters.', 'error');
             return;
         }
@@ -788,7 +837,7 @@ class AccountNinja {
             this.runSingleDistributionCycle(simAccounts, amountPerCycle, true);
 
             simAccounts.forEach(acc => {
-                acc.daysRemaining = Math.max(0, acc.daysRemaining - 30);
+                acc.daysRemaining = Math.max(0, acc.daysRemaining - daysPerCycle);
             });
 
             simAccounts.forEach(acc => {
@@ -862,7 +911,8 @@ class AccountNinja {
                         newAccounts.push({
                             id: Date.now() + i + Math.random(),
                             name, goalAmount, currentAmount,
-                            priority: 0, zenWeight, daysRemaining
+                            priority: 0, zenWeight, daysRemaining,
+                            originalDaysRemaining: daysRemaining  // Store original value for reset
                         });
                     }
                 }

@@ -51,6 +51,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                     <div class="input-group">
                         <input type="number" id="amountToDistribute" placeholder="Amount per Cycle ($)" class="form-input">
                         <input type="number" id="distributionCyclesInput" value="1" min="1" placeholder="Cycles" class="form-input">
+                        <input type="number" id="daysPerCycle" value="30" min="1" placeholder="Days per Cycle" class="form-input">
                         <button id="distributeBtn" class="btn btn-success">Run Simulation</button>
                         <button id="resetBtn" class="btn btn-secondary">Reset All</button>
                     </div>
@@ -73,7 +74,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
             <div class="visualization-panel">
                 <div class="chart-container">
                     <div class="card chart-card">
-                        <h3>Account Growth Over Time (Stacked)</h3>
+                        <h3>Account Growth Over Days Elapsed</h3>
                         <canvas id="cumulativeGrowthChart"></canvas>
                     </div>
                 </div>

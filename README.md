@@ -10,7 +10,7 @@ Account Ninja is a sophisticated client-side web application that helps you simu
 ## ✨ Features
 
 ### 📊 Real-time Data Visualization
-- **Cumulative Growth Chart**: Stacked area chart showing individual account growth over simulation cycles
+- **Account Growth Over Days**: Stacked area chart showing individual account growth over actual days elapsed
 - **Distribution Analysis**: Doughnut chart with direct labels showing fund allocation by account
 - **Days Remaining Analysis**: Bar chart showing account growth relative to time constraints
 - **Interactive Dashboard**: Professional financial dashboard interface with consistent color coding
@@ -27,8 +27,9 @@ Account Ninja is a sophisticated client-side web application that helps you simu
 
 ### 🚀 Simulation Engine
 - Multi-cycle distribution simulation with intelligent fund allocation
+- Configurable cycle duration (days per cycle) for flexible time modeling
 - Algorithm based on priority, zen weight, and time remaining
-- Real-time visualization updates during simulation
+- Real-time visualization updates during simulation with days elapsed tracking
 - Export simulation timelines for external analysis
 
 ### 💾 Data Management
@@ -78,7 +79,7 @@ Funds are distributed proportionally based on calculated weights, ensuring accou
 - Data import/export controls
 
 ### Visualization Panel
-- **Account Growth Over Time**: Stacked area chart showing individual account progression
+- **Account Growth Over Days Elapsed**: Stacked area chart showing individual account progression over actual time
 - **Fund Distribution**: Doughnut chart with direct labels showing allocation percentages
 - **Days Remaining Chart**: Bar chart visualizing urgency-based allocation
 
