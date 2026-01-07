@@ -60,7 +60,7 @@ No installation, build process, or server setup required!
 - **Goal Amount**: Target amount for the account
 - **Current Amount**: Present balance (editable)
 - **Priority**: Order-based priority (1 = highest priority)
-- **Zen Weight**: Allocation multiplier (1.0-3.0)
+- **Zen Weight**: Allocation multiplier (1.0-3.0) - A qualitative measure where you ask yourself: "Does this account allocation make sense, cents, and scents?" (logical sense, financial sense, intuitive feel)
 - **Days Remaining**: Time constraint for reaching the goal
 
 ### Allocation Algorithm
