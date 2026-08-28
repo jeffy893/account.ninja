@@ -91,6 +91,7 @@ class AccountNinja {
         
         // Table elements
         this.accountsTableBody = document.getElementById('accountsTableBody');
+        this.accountsTableFoot = document.getElementById('accountsTableFoot');
     }
 
     initializeEventListeners() {
@@ -469,6 +470,7 @@ class AccountNinja {
 
     renderAccounts() {
         this.accountsTableBody.innerHTML = '';
+        if (this.accountsTableFoot) this.accountsTableFoot.innerHTML = '';
         
         if (this.accounts.length === 0) {
             const row = this.accountsTableBody.insertRow();
@@ -580,6 +582,34 @@ class AccountNinja {
             });
             actionsCell.appendChild(deleteBtn);
         });
+
+        this.renderTotalsRow();
+    }
+
+    renderTotalsRow() {
+        if (!this.accountsTableFoot) return;
+        this.accountsTableFoot.innerHTML = '';
+
+        const totalGoal = this.accounts.reduce((sum, acc) => sum + acc.goalAmount, 0);
+        const totalCurrent = this.accounts.reduce((sum, acc) => sum + acc.currentAmount, 0);
+        const totalRemaining = this.accounts.reduce(
+            (sum, acc) => sum + Math.max(0, acc.goalAmount - acc.currentAmount), 0);
+
+        const row = this.accountsTableFoot.insertRow();
+        row.className = 'totals-row';
+
+        // Label under Account Name
+        const labelCell = row.insertCell();
+        labelCell.textContent = 'Totals';
+
+        // Goal, Current, Remaining totals
+        row.insertCell().textContent = `$${totalGoal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        row.insertCell().textContent = `$${totalCurrent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        row.insertCell().textContent = `$${totalRemaining.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+        // Remaining columns: Priority, 3Zen Weight, Days Left, Progress, Actions
+        const spacer = row.insertCell();
+        spacer.colSpan = 5;
     }
 
     addDragListeners(row) {

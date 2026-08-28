@@ -345,8 +345,15 @@ body {
     color: var(--text-primary);
 }
 
-.accounts-table tr:hover {
+.accounts-table tbody tr:hover {
     background-color: #f9fafb;
+}
+
+.accounts-table tfoot .totals-row td {
+    background-color: #f3f4f6;
+    font-weight: 700;
+    color: var(--text-primary);
+    border-top: 2px solid var(--border-color);
 }
 
 .accounts-table input {
