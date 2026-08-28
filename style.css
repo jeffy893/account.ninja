@@ -364,6 +364,11 @@ body {
     font-size: 0.85rem;
 }
 
+.accounts-table input.current-amount-input {
+    width: 120px;
+    min-width: 120px;
+}
+
 .progress-bar {
     width: 100px;
     height: 8px;

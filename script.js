@@ -151,11 +151,11 @@ class AccountNinja {
                         borderWidth: 1,
                         callbacks: {
                             label: function(context) {
-                                return `${context.dataset.label}: $${context.parsed.y.toLocaleString()}`;
+                                return `${context.dataset.label}: $${Math.round(context.parsed.y).toLocaleString()}`;
                             },
                             footer: function(tooltipItems) {
                                 const total = tooltipItems.reduce((sum, item) => sum + item.parsed.y, 0);
-                                return `Total: $${total.toLocaleString()}`;
+                                return `Total: $${Math.round(total).toLocaleString()}`;
                             }
                         }
                     }
@@ -218,7 +218,7 @@ class AccountNinja {
                         callbacks: {
                             label: function(context) {
                                 const label = context.label || '';
-                                const value = '$' + context.parsed.toLocaleString();
+                                const value = '$' + Math.round(context.parsed).toLocaleString();
                                 const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                 const percentage = ((context.parsed / total) * 100).toFixed(1);
                                 return `${label}: ${value} (${percentage}%)`;
@@ -269,7 +269,7 @@ class AccountNinja {
                                 // Draw multi-line label
                                 const lines = [
                                     label,
-                                    '$' + value.toLocaleString(),
+                                    '$' + Math.round(value).toLocaleString(),
                                     percentage + '%'
                                 ];
                                 
@@ -480,6 +480,48 @@ class AccountNinja {
         }, 5000);
     }
 
+    // Format a dollar amount rounded to the nearest whole dollar.
+    formatDollars(amount) {
+        return `$${Math.round(amount).toLocaleString()}`;
+    }
+
+    // Compute each account's share of the current total as whole percentages
+    // that sum to exactly 100 (largest-remainder / Hamilton method).
+    // Returns a Map keyed by account id -> integer percent.
+    computePercentShares() {
+        const shares = new Map();
+        const total = this.accounts.reduce((sum, acc) => sum + acc.currentAmount, 0);
+
+        if (total <= 0) {
+            this.accounts.forEach(acc => shares.set(acc.id, 0));
+            return shares;
+        }
+
+        // Exact percentage and its floor for each account.
+        const entries = this.accounts.map(acc => {
+            const exact = (acc.currentAmount / total) * 100;
+            const floor = Math.floor(exact);
+            return { id: acc.id, floor, remainder: exact - floor };
+        });
+
+        let allocated = entries.reduce((sum, e) => sum + e.floor, 0);
+        let leftover = 100 - allocated;
+
+        // Distribute the remaining whole percents to the largest remainders.
+        entries
+            .slice()
+            .sort((a, b) => b.remainder - a.remainder)
+            .forEach(e => {
+                if (leftover > 0) {
+                    e.floor += 1;
+                    leftover -= 1;
+                }
+            });
+
+        entries.forEach(e => shares.set(e.id, e.floor));
+        return shares;
+    }
+
     renderAccounts() {
         this.accountsTableBody.innerHTML = '';
         if (this.accountsTableFoot) this.accountsTableFoot.innerHTML = '';
@@ -487,13 +529,15 @@ class AccountNinja {
         if (this.accounts.length === 0) {
             const row = this.accountsTableBody.insertRow();
             const cell = row.insertCell();
-            cell.colSpan = 9;
+            cell.colSpan = 10;
             cell.textContent = 'No accounts yet. Add some to get started!';
             cell.style.textAlign = 'center';
             cell.style.padding = '2rem';
             cell.style.color = '#6b7280';
             return;
         }
+
+        const percentShares = this.computePercentShares();
 
         this.accounts.forEach((account) => {
             const row = this.accountsTableBody.insertRow();
@@ -503,14 +547,19 @@ class AccountNinja {
 
             // Account Name
             row.insertCell().textContent = account.name;
+
+            // % of Total (current amount relative to current total)
+            const percentCell = row.insertCell();
+            percentCell.textContent = `${percentShares.get(account.id) || 0}%`;
             
             // Goal Amount
-            row.insertCell().textContent = `$${account.goalAmount.toLocaleString()}`;
+            row.insertCell().textContent = this.formatDollars(account.goalAmount);
             
             // Current Amount (editable)
             const currentAmountCell = row.insertCell();
             const currentAmountInput = document.createElement('input');
             currentAmountInput.type = 'number';
+            currentAmountInput.className = 'current-amount-input';
             currentAmountInput.value = account.currentAmount.toFixed(2);
             currentAmountInput.min = 0;
             currentAmountInput.step = "0.01";
@@ -527,7 +576,7 @@ class AccountNinja {
 
             // Remaining Amount
             const remaining = Math.max(0, account.goalAmount - account.currentAmount);
-            row.insertCell().textContent = `$${remaining.toLocaleString()}`;
+            row.insertCell().textContent = this.formatDollars(remaining);
             
             // Priority
             row.insertCell().textContent = account.priority;
@@ -614,10 +663,14 @@ class AccountNinja {
         const labelCell = row.insertCell();
         labelCell.textContent = 'Totals';
 
-        // Goal, Current, Remaining totals
-        row.insertCell().textContent = `$${totalGoal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        row.insertCell().textContent = `$${totalCurrent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        row.insertCell().textContent = `$${totalRemaining.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        // % of Total column (always sums to 100 when funds exist)
+        const percentCell = row.insertCell();
+        percentCell.textContent = totalCurrent > 0 ? '100%' : '0%';
+
+        // Goal, Current, Remaining totals (rounded to the nearest dollar)
+        row.insertCell().textContent = this.formatDollars(totalGoal);
+        row.insertCell().textContent = this.formatDollars(totalCurrent);
+        row.insertCell().textContent = this.formatDollars(totalRemaining);
 
         // Remaining columns: Priority, 3Zen Weight, Days Left, Progress, Actions
         const spacer = row.insertCell();
@@ -808,7 +861,7 @@ class AccountNinja {
         const theoreticalTotal = amountPerCycle * actualCyclesProcessed;
 
         this.showMessage(
-            `Simulation Complete: Distributed $${grandTotalDistributed.toFixed(2)} over ${actualCyclesProcessed} cycle(s) (${actualCyclesProcessed * daysPerCycle} total days). Total portfolio value: $${totalValue.toLocaleString()}`,
+            `Simulation Complete: Distributed $${Math.round(grandTotalDistributed).toLocaleString()} over ${actualCyclesProcessed} cycle(s) (${actualCyclesProcessed * daysPerCycle} total days). Total portfolio value: $${Math.round(totalValue).toLocaleString()}`,
             'success'
         );
         
