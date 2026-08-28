@@ -92,6 +92,18 @@ class AccountNinja {
         // Table elements
         this.accountsTableBody = document.getElementById('accountsTableBody');
         this.accountsTableFoot = document.getElementById('accountsTableFoot');
+
+        // Resilience: if a cached HTML is missing the tfoot, create it so the
+        // totals row still renders.
+        if (!this.accountsTableFoot && this.accountsTableBody) {
+            const table = this.accountsTableBody.closest('table');
+            if (table) {
+                const foot = document.createElement('tfoot');
+                foot.id = 'accountsTableFoot';
+                table.appendChild(foot);
+                this.accountsTableFoot = foot;
+            }
+        }
     }
 
     initializeEventListeners() {
