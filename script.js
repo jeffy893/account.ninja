@@ -709,7 +709,7 @@ class AccountNinja {
         const daysPerCycle = parseInt(this.daysPerCycleInput.value) || 30;
         
         if (isNaN(amountPerCycle) || amountPerCycle <= 0 || numCyclesRequested < 1 || daysPerCycle < 1) {
-            this.showMessage('Please enter valid Amount per Cycle, Cycles, and Days per Cycle values.', 'error');
+            this.showMessage('Please enter valid Amount to Allocate, Sets of Days to Allocate, and Days till Next Allocation values.', 'error');
             return;
         }
 
@@ -728,7 +728,10 @@ class AccountNinja {
 
         for (let cycle = 1; cycle <= numCyclesRequested; cycle++) {
             actualCyclesProcessed = cycle;
-            const moneyGivenInThisCycle = this.runSingleDistributionCycle(this.accounts, amountPerCycle, false);
+            // Only allocate to accounts that still have days remaining (> 0).
+            // Once an account's days remaining reaches zero it is frozen at its
+            // current amount and remaining accounts continue receiving funds.
+            const moneyGivenInThisCycle = this.runSingleDistributionCycle(this.accounts, amountPerCycle, true);
             grandTotalDistributed += moneyGivenInThisCycle;
             
             // Reduce days remaining for all accounts after each cycle

@@ -112,9 +112,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
                 <div class="card">
                     <h2>Simulation Controls</h2>
                     <div class="input-group">
-                        <input type="number" id="amountToDistribute" placeholder="Amount per Cycle ($)" class="form-input">
-                        <input type="number" id="distributionCyclesInput" value="1" min="1" placeholder="Cycles" class="form-input">
-                        <input type="number" id="daysPerCycle" value="30" min="1" placeholder="Days per Cycle" class="form-input">
+                        <label for="amountToDistribute" class="form-label">Amount to Allocate ($)</label>
+                        <input type="number" id="amountToDistribute" placeholder="Amount to Allocate ($)" class="form-input">
+                        <label for="distributionCyclesInput" class="form-label">Sets of Days to Allocate</label>
+                        <input type="number" id="distributionCyclesInput" value="1" min="1" placeholder="Sets of Days to Allocate" class="form-input">
+                        <label for="daysPerCycle" class="form-label">Days till Next Allocation</label>
+                        <input type="number" id="daysPerCycle" value="30" min="1" placeholder="Days till Next Allocation" class="form-input">
                         <button id="distributeBtn" class="btn btn-success">Run Simulation</button>
                         <button id="resetBtn" class="btn btn-secondary">Reset All</button>
                     </div>
