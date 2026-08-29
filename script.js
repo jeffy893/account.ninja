@@ -911,43 +911,82 @@ class AccountNinja {
     }
 
     generateTimelineCSV() {
-        const amountPerCycle = parseFloat(this.amountToDistributeInput.value);
-        const numCyclesToSimulate = parseInt(this.distributionCyclesInput.value) || 1;
-        const daysPerCycle = parseInt(this.daysPerCycleInput.value) || 30;
-        
-        if (isNaN(amountPerCycle) || amountPerCycle <= 0 || numCyclesToSimulate < 1 || daysPerCycle < 1) {
-            this.showMessage('Please enter valid simulation parameters.', 'error');
-            return;
+        // Prefer the simulation the user actually ran interactively. Clicking
+        // "Run Simulation" (once with N sets, or N times with 1 set each)
+        // records each cycle in this.simulationHistory. Exporting that history
+        // is what makes "run it 12 times, then export" produce a 12-cycle
+        // timeline. Only when there is no recorded history do we fall back to
+        // running a fresh simulation from the current state using the inputs.
+        let csvRows;
+        if (this.simulationHistory.length > 1) {
+            csvRows = this.buildTimelineRowsFromHistory();
+        } else {
+            const amountPerCycle = parseFloat(this.amountToDistributeInput.value);
+            const numCyclesToSimulate = parseInt(this.distributionCyclesInput.value) || 1;
+            const daysPerCycle = parseInt(this.daysPerCycleInput.value) || 30;
+
+            if (isNaN(amountPerCycle) || amountPerCycle <= 0 || numCyclesToSimulate < 1 || daysPerCycle < 1) {
+                this.showMessage('Please enter valid simulation parameters, or run the simulation first.', 'error');
+                return;
+            }
+            csvRows = this.buildTimelineRowsFromFreshSimulation(amountPerCycle, numCyclesToSimulate, daysPerCycle);
         }
 
-        const simAccounts = JSON.parse(JSON.stringify(this.accounts));
-        const headers = ['Cycle', 'Day of Allocation', 'Account Name', 'Goal Amount ($)', 'Current Amount ($)', 'Remaining ($)', 'Priority', '3Zen Weight', 'Days Remaining'];
-        const csvRows = [headers];
+        const csvContent = csvRows.map(row => row.map(this.escapeCsvValue).join(',')).join('\n');
+        this.downloadCsvContent(csvContent, 'account_ninja_timeline.csv');
+        this.showMessage('Timeline simulation exported successfully!', 'success');
+    }
 
-        // "Day of Allocation" is the cumulative elapsed day for each cycle:
-        // cycle 0 = day 0, and every cycle advances by daysPerCycle. This makes
-        // the timeline self-describing on a real day axis in addition to cycle #.
-        // Add initial state (Cycle 0, Day 0)
-        simAccounts.forEach(acc => {
-            const remaining = Math.max(0, acc.goalAmount - acc.currentAmount);
-            csvRows.push([
-                0, 0, acc.name, acc.goalAmount.toFixed(2), acc.currentAmount.toFixed(2),
-                remaining.toFixed(2), acc.priority, acc.zenWeight, acc.daysRemaining
-            ]);
+    timelineHeaders() {
+        return ['Cycle', 'Day of Allocation', 'Account Name', 'Goal Amount ($)', 'Current Amount ($)', 'Remaining ($)', 'Priority', '3Zen Weight', 'Days Remaining'];
+    }
+
+    timelineRowFor(cycle, dayOfAllocation, acc) {
+        const remaining = Math.max(0, acc.goalAmount - acc.currentAmount);
+        return [
+            cycle, dayOfAllocation, acc.name, acc.goalAmount.toFixed(2), acc.currentAmount.toFixed(2),
+            remaining.toFixed(2), acc.priority, acc.zenWeight, acc.daysRemaining
+        ];
+    }
+
+    // Serialize the interactive simulation the user built via "Run Simulation".
+    // simulationHistory[0] is the cycle-0 baseline; each later entry is a full
+    // snapshot after that cycle, carrying cumulativeDays (the Day of Allocation).
+    // Per-account freezing: once an account is at 0 days remaining it is frozen
+    // and dropped from that cycle onward (it does not repeat as a dead row).
+    buildTimelineRowsFromHistory() {
+        const csvRows = [this.timelineHeaders()];
+        this.simulationHistory.forEach((entry, cycle) => {
+            const dayOfAllocation = entry.cumulativeDays;
+            entry.accounts.forEach(acc => {
+                // Cycle 0 shows every account's starting position. From cycle 1
+                // on, an account appears only while it still has days remaining;
+                // once frozen at 0 days it drops out of subsequent cycles.
+                if (cycle > 0 && acc.daysRemaining <= 0) {
+                    // Include the cycle in which it JUST hit 0 (it vested this
+                    // cycle), but not later ones. Detect "just hit 0" by checking
+                    // the previous cycle still had days left.
+                    const prev = this.simulationHistory[cycle - 1].accounts.find(a => a.id === acc.id);
+                    if (!prev || prev.daysRemaining <= 0) return;
+                }
+                csvRows.push(this.timelineRowFor(cycle, dayOfAllocation, acc));
+            });
         });
+        return csvRows;
+    }
 
-        // Run simulation.
-        //
-        // Per-account freezing: an account participates in a cycle only if it
-        // still had days remaining at the START of that cycle. It vests during
-        // that cycle (so its row IS written, showing the newly vested amount),
-        // and then its days remaining is decremented. Once an account reaches
-        // 0 days it is frozen -- it receives no further allocation AND is no
-        // longer written into any subsequent cycle's rows.
+    // Fallback: no interactive history exists, so run a fresh simulation from
+    // the current account state using the provided inputs. Same per-account
+    // freezing/dropout semantics as the interactive path.
+    buildTimelineRowsFromFreshSimulation(amountPerCycle, numCyclesToSimulate, daysPerCycle) {
+        const simAccounts = JSON.parse(JSON.stringify(this.accounts));
+        const csvRows = [this.timelineHeaders()];
+
+        // Cycle 0, Day 0 baseline.
+        simAccounts.forEach(acc => csvRows.push(this.timelineRowFor(0, 0, acc)));
+
         for (let cycle = 1; cycle <= numCyclesToSimulate; cycle++) {
             const dayOfAllocation = cycle * daysPerCycle;
-
-            // Accounts eligible to vest this cycle: had time left coming in.
             const activeThisCycle = simAccounts.filter(acc => acc.daysRemaining > 0);
             if (activeThisCycle.length === 0) break;
 
@@ -957,24 +996,13 @@ class AccountNinja {
                 acc.daysRemaining = Math.max(0, acc.daysRemaining - daysPerCycle);
             });
 
-            // Only write rows for accounts that were active this cycle. Frozen
-            // accounts (0 days coming in) drop out of the timeline entirely.
-            activeThisCycle.forEach(acc => {
-                const remaining = Math.max(0, acc.goalAmount - acc.currentAmount);
-                csvRows.push([
-                    cycle, dayOfAllocation, acc.name, acc.goalAmount.toFixed(2), acc.currentAmount.toFixed(2),
-                    remaining.toFixed(2), acc.priority, acc.zenWeight, acc.daysRemaining
-                ]);
-            });
+            activeThisCycle.forEach(acc => csvRows.push(this.timelineRowFor(cycle, dayOfAllocation, acc)));
 
             const allFunded = simAccounts.every(acc => acc.currentAmount >= acc.goalAmount);
             const allOutOfTime = simAccounts.every(acc => acc.daysRemaining <= 0 || acc.currentAmount >= acc.goalAmount);
             if (allFunded || allOutOfTime) break;
         }
-
-        const csvContent = csvRows.map(row => row.map(this.escapeCsvValue).join(',')).join('\n');
-        this.downloadCsvContent(csvContent, 'account_ninja_timeline.csv');
-        this.showMessage('Timeline simulation exported successfully!', 'success');
+        return csvRows;
     }
 
     downloadCsvContent(csvContent, fileName) {
