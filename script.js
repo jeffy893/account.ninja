@@ -763,11 +763,13 @@ class AccountNinja {
             iterations++;
             let moneyGivenThisPass = 0;
             let eligibleAccounts = accountsToProcess.filter(acc => {
-                const needsFunds = acc.currentAmount < acc.goalAmount;
-                if (isTimelineSimulation) {
-                    return needsFunds && acc.daysRemaining > 0;
-                }
-                return needsFunds;
+                // An account is eligible as long as it still needs funds.
+                // Days Remaining is a priority/urgency signal (see calculatedWeight
+                // below), NOT an on/off switch: 0 days means "no future deadline /
+                // fund now," which is the MOST urgent case, so those accounts must
+                // still participate. Excluding them would silently distribute
+                // nothing whenever every account is at 0 days remaining.
+                return acc.currentAmount < acc.goalAmount;
             });
             
             if (eligibleAccounts.length === 0) break;
@@ -823,9 +825,9 @@ class AccountNinja {
 
         for (let cycle = 1; cycle <= numCyclesRequested; cycle++) {
             actualCyclesProcessed = cycle;
-            // Only allocate to accounts that still have days remaining (> 0).
-            // Once an account's days remaining reaches zero it is frozen at its
-            // current amount and remaining accounts continue receiving funds.
+            // Allocate to any account that still needs funds. Days Remaining
+            // drives urgency (weighting), not eligibility -- accounts at 0 days
+            // are treated as most urgent and keep receiving funds.
             const moneyGivenInThisCycle = this.runSingleDistributionCycle(this.accounts, amountPerCycle, true);
             grandTotalDistributed += moneyGivenInThisCycle;
             
@@ -846,7 +848,7 @@ class AccountNinja {
             let cycleMessage = `Cycle ${cycle}: Distributed $${moneyGivenInThisCycle.toFixed(2)} (${daysPerCycle} days elapsed)`;
             cycleReport.push(cycleMessage);
             if (moneyGivenInThisCycle < amountPerCycle) {
-                const anyAccountNeedsFunding = this.accounts.some(acc => acc.currentAmount < acc.goalAmount && acc.daysRemaining > 0);
+                const anyAccountNeedsFunding = this.accounts.some(acc => acc.currentAmount < acc.goalAmount);
                 if (!anyAccountNeedsFunding) {
                     cycleReport.push('All accounts are fully funded or out of time. Stopping simulation.');
                     break;
@@ -946,9 +948,11 @@ class AccountNinja {
                 ]);
             });
 
+            // Stop early only when every account is fully funded. Days Remaining
+            // no longer gates eligibility, so "out of time" is not a stopping
+            // condition -- accounts at 0 days keep receiving funds each cycle.
             const allFunded = simAccounts.every(acc => acc.currentAmount >= acc.goalAmount);
-            const allOutOfTime = simAccounts.every(acc => acc.daysRemaining <= 0 || acc.currentAmount >= acc.goalAmount);
-            if (allFunded || allOutOfTime) break;
+            if (allFunded) break;
         }
 
         const csvContent = csvRows.map(row => row.map(this.escapeCsvValue).join(',')).join('\n');
