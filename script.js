@@ -936,16 +936,30 @@ class AccountNinja {
             ]);
         });
 
-        // Run simulation
+        // Run simulation.
+        //
+        // Per-account freezing: an account participates in a cycle only if it
+        // still had days remaining at the START of that cycle. It vests during
+        // that cycle (so its row IS written, showing the newly vested amount),
+        // and then its days remaining is decremented. Once an account reaches
+        // 0 days it is frozen -- it receives no further allocation AND is no
+        // longer written into any subsequent cycle's rows.
         for (let cycle = 1; cycle <= numCyclesToSimulate; cycle++) {
             const dayOfAllocation = cycle * daysPerCycle;
+
+            // Accounts eligible to vest this cycle: had time left coming in.
+            const activeThisCycle = simAccounts.filter(acc => acc.daysRemaining > 0);
+            if (activeThisCycle.length === 0) break;
+
             this.runSingleDistributionCycle(simAccounts, amountPerCycle, true);
 
-            simAccounts.forEach(acc => {
+            activeThisCycle.forEach(acc => {
                 acc.daysRemaining = Math.max(0, acc.daysRemaining - daysPerCycle);
             });
 
-            simAccounts.forEach(acc => {
+            // Only write rows for accounts that were active this cycle. Frozen
+            // accounts (0 days coming in) drop out of the timeline entirely.
+            activeThisCycle.forEach(acc => {
                 const remaining = Math.max(0, acc.goalAmount - acc.currentAmount);
                 csvRows.push([
                     cycle, dayOfAllocation, acc.name, acc.goalAmount.toFixed(2), acc.currentAmount.toFixed(2),
