@@ -921,20 +921,24 @@ class AccountNinja {
         }
 
         const simAccounts = JSON.parse(JSON.stringify(this.accounts));
-        const headers = ['Cycle', 'Account Name', 'Goal Amount ($)', 'Current Amount ($)', 'Remaining ($)', 'Priority', '3Zen Weight', 'Days Remaining'];
+        const headers = ['Cycle', 'Day of Allocation', 'Account Name', 'Goal Amount ($)', 'Current Amount ($)', 'Remaining ($)', 'Priority', '3Zen Weight', 'Days Remaining'];
         const csvRows = [headers];
 
-        // Add initial state (Cycle 0)
+        // "Day of Allocation" is the cumulative elapsed day for each cycle:
+        // cycle 0 = day 0, and every cycle advances by daysPerCycle. This makes
+        // the timeline self-describing on a real day axis in addition to cycle #.
+        // Add initial state (Cycle 0, Day 0)
         simAccounts.forEach(acc => {
             const remaining = Math.max(0, acc.goalAmount - acc.currentAmount);
             csvRows.push([
-                0, acc.name, acc.goalAmount.toFixed(2), acc.currentAmount.toFixed(2),
+                0, 0, acc.name, acc.goalAmount.toFixed(2), acc.currentAmount.toFixed(2),
                 remaining.toFixed(2), acc.priority, acc.zenWeight, acc.daysRemaining
             ]);
         });
 
         // Run simulation
         for (let cycle = 1; cycle <= numCyclesToSimulate; cycle++) {
+            const dayOfAllocation = cycle * daysPerCycle;
             this.runSingleDistributionCycle(simAccounts, amountPerCycle, true);
 
             simAccounts.forEach(acc => {
@@ -944,7 +948,7 @@ class AccountNinja {
             simAccounts.forEach(acc => {
                 const remaining = Math.max(0, acc.goalAmount - acc.currentAmount);
                 csvRows.push([
-                    cycle, acc.name, acc.goalAmount.toFixed(2), acc.currentAmount.toFixed(2),
+                    cycle, dayOfAllocation, acc.name, acc.goalAmount.toFixed(2), acc.currentAmount.toFixed(2),
                     remaining.toFixed(2), acc.priority, acc.zenWeight, acc.daysRemaining
                 ]);
             });
